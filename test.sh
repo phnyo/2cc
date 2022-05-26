@@ -21,5 +21,7 @@ assert 0 0
 assert 42 42
 assert 42 "1+2+3+6+24+6"
 assert 42 " 1 + 2          + 3 +6+24+6"
+assert 42 "6 * 7"
+assert 42 "(2 + 2 + 2) * (2 + 5)"
 
 echo OK
