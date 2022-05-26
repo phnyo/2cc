@@ -27,10 +27,19 @@ struct Token {
 // 現在のトークンへのポインタ
 Token *token;
 
-// エラー用関数
-void error(char *fmt, ...) {
+// 入力されたプログラムの文字列
+char *user_input;
+
+void error_at(char *loc, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
+
+  // char型の大きさが1bitなのでlocとuser_inputの差はそのままintにできる
+  int pos = loc - user_input;
+  fprintf(stderr, "%s\n", user_input);
+  // pos個の空白が入る
+  fprintf(stderr, "%*s", pos, " ");
+  fprintf(stderr, "^ ");
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
   exit(1);
@@ -48,13 +57,14 @@ bool consume(char op) {
 void expect(char op) {
   // 記号でないか、期待している記号でないなら偽
   if (token->kind != TK_RESERVED || token->str[0] != op)
-    error("expected operator '%c' but instead got '%c'", op, token->str[0]);
+    error_at(token->str, "expected operator '%c' but instead got '%c'", op,
+             token->str[0]);
   token = token->next;
 }
 
 int expect_number() {
   if (token->kind != TK_NUM)
-    error("consumed non-numeric value");
+    error_at(token->str, "consumed non-numeric value");
   int val = token->val;
   token = token->next;
   return val;
@@ -92,7 +102,7 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    error("could not tokenize. sorry ;(");
+    error_at(p, "could not tokenize");
   }
   new_token(TK_EOF, cur, p);
   return head.next;
@@ -104,6 +114,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  user_input = argv[1];
   token = tokenize(argv[1]);
 
   printf(".intel_syntax noprefix\n");
