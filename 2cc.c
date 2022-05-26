@@ -19,7 +19,8 @@ struct Token {
   TokenKind kind; //型
   Token *next;
   int val;   // kind == TK_NUMのときの数値
-  char *str; // TOKEN本体
+  char *str; // トークン文字列
+  int len;   // トークンの長さ
 };
 
 // ASTのノードの種類
@@ -62,18 +63,20 @@ void error_at(char *loc, char *fmt, ...) {
   exit(1);
 }
 
-bool consume(char op) {
+bool consume(char *op) {
   // 記号でないか、期待している記号でないなら偽
-  if (token->kind != TK_RESERVED || token->str[0] != op)
+  if (token->kind != TK_RESERVED || strlen(op) != token->len ||
+      memcmp(token->str, op, token->len))
     return false;
   // 次のトークンに進める
   token = token->next;
   return true;
 }
 
-void expect(char op) {
+void expect(char *op) {
   // 記号でないか、期待している記号でないなら偽
-  if (token->kind != TK_RESERVED || token->str[0] != op)
+  if (token->kind != TK_RESERVED || strlen(op) != token->len ||
+      memcmp(token->str, op, token->len))
     error_at(token->str, "expected operator '%c' but instead got '%c'", op,
              token->str[0]);
   token = token->next;
@@ -88,6 +91,31 @@ int expect_number() {
 }
 
 bool at_eof() { return (token->kind == TK_EOF); }
+
+//可視化用
+
+void show_node(Node *node) {
+  switch (node->kind) {
+  case ND_ADD:
+    printf("current nodeval: %s\n", "ADD");
+    break;
+  case ND_SUB:
+    printf("current nodeval: %s\n", "SUB");
+    break;
+  case ND_DIV:
+    printf("current nodeval: %s\n", "DIV");
+    break;
+  case ND_MUL:
+    printf("current nodeval: %s\n", "MUL");
+    break;
+  case ND_NUM:
+    printf("current nodeval: %s, value: %d\n", "NUM", node->val);
+
+    break;
+  }
+  show_node(node->lhs);
+  show_node(node->rhs);
+}
 
 Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
   Node *node = calloc(1, sizeof(Node));
@@ -107,40 +135,48 @@ Node *new_node_num(int val) {
 Node *expr();
 Node *mul();
 Node *primary();
-
-Node *primary() {
-  if (consume('(')) {
-    Node *node = expr();
-    expect(')');
-    return node;
-  }
-
-  return new_node_num(expect_number());
-}
-
-Node *mul() {
-  Node *node = primary();
-
-  while (1) {
-    if (consume('*'))
-      node = new_node(ND_MUL, node, primary());
-    else if (consume('/'))
-      node = new_node(ND_DIV, node, primary());
-    else
-      return node;
-  }
-}
+Node *unary();
 
 Node *expr() {
   Node *node = mul();
   while (1) {
-    if (consume('+'))
+    if (consume("+"))
       node = new_node(ND_ADD, node, mul());
-    else if (consume('-'))
+    else if (consume("-"))
       node = new_node(ND_SUB, node, mul());
     else
       return node;
   }
+}
+
+Node *mul() {
+  Node *node = unary();
+  while (1) {
+    if (consume("*"))
+      node = new_node(ND_MUL, node, unary());
+    else if (consume("/"))
+      node = new_node(ND_DIV, node, unary());
+    else
+      return node;
+  }
+}
+
+Node *unary() {
+  if (consume("+"))
+    return primary();
+  if (consume("-"))
+    return new_node(ND_SUB, new_node_num(0), primary());
+  return primary();
+}
+
+Node *primary() {
+  if (consume("(")) {
+    Node *node = expr();
+    expect(")");
+    return node;
+  }
+
+  return new_node_num(expect_number());
 }
 
 Token *new_token(TokenKind kind, Token *cur, char *str) {
@@ -165,6 +201,7 @@ Token *tokenize(char *p) {
     if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' ||
         *p == ')') {
       cur = new_token(TK_RESERVED, cur, p++);
+      cur->len = 1;
       continue;
     }
 
@@ -178,6 +215,22 @@ Token *tokenize(char *p) {
   }
   new_token(TK_EOF, cur, p);
   return head.next;
+}
+
+void show_token(Token *token) {
+  switch (token->kind) {
+  case (TK_NUM):
+    printf("val: %d, kind: NUM\n", token->val);
+    break;
+  case (TK_RESERVED):
+    printf("kind: RESERVED\n", token->val);
+    break;
+  case (TK_EOF):
+    printf("kind: EOF\n", token->val);
+    break;
+  }
+  if (token->next != NULL)
+    show_token(token->next);
 }
 
 void gen(Node *node) {
@@ -219,7 +272,10 @@ int main(int argc, char **argv) {
 
   user_input = argv[1];
   token = tokenize(argv[1]);
+  // show_token(token);
+
   Node *node = expr();
+  // show_node(node);
 
   printf(".intel_syntax noprefix\n");
   printf(".globl main\n");

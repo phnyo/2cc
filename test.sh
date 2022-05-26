@@ -23,5 +23,8 @@ assert 42 "1+2+3+6+24+6"
 assert 42 " 1 + 2          + 3 +6+24+6"
 assert 42 "6 * 7"
 assert 42 "(2 + 2 + 2) * (2 + 5)"
+assert 42 "50 - 8"
+assert 42 "- 8 + 50"
+assert 42 "+8 + 34"
 
 echo OK
