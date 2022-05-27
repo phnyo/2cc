@@ -26,5 +26,11 @@ assert 42 "(2 + 2 + 2) * (2 + 5)"
 assert 42 "50 - 8"
 assert 42 "- 8 + 50"
 assert 42 "+8 + 34"
+assert 1 "42 == 42"
+assert 1 "42 > 0"
+assert 0 "42 < 0"
+assert 1 "42 >= 42"
+assert 1 "42 <= 42"
+assert 1 "6 * 7 == 38 + 4"
 
 echo OK

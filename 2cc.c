@@ -30,6 +30,12 @@ typedef enum {
   ND_MUL, // *
   ND_DIV, // /
   ND_NUM, // せいすう
+  ND_NEQ, // !=
+  ND_EQ,  // ==
+  ND_LEQ, // <=
+  ND_LES, // <
+  ND_GEQ, // >=
+  ND_GRE  // >
 } NodeKind;
 
 typedef struct Node Node;
@@ -132,12 +138,42 @@ Node *new_node_num(int val) {
   return node;
 }
 
-Node *expr();
+Node *eql();
+Node *rel();
+Node *add();
 Node *mul();
 Node *primary();
 Node *unary();
 
-Node *expr() {
+Node *eql() {
+  Node *node = rel();
+  while (1) {
+    if (consume("=="))
+      node = new_node(ND_EQ, node, rel());
+    else if (consume("!="))
+      node = new_node(ND_NEQ, node, rel());
+    else
+      return node;
+  }
+}
+
+Node *rel() {
+  Node *node = add();
+  while (1) {
+    if (consume("<="))
+      node = new_node(ND_LEQ, node, mul());
+    else if (consume(">="))
+      node = new_node(ND_GEQ, node, mul());
+    else if (consume("<"))
+      node = new_node(ND_LES, node, mul());
+    else if (consume(">"))
+      node = new_node(ND_GRE, node, mul());
+    else
+      return node;
+  }
+}
+
+Node *add() {
   Node *node = mul();
   while (1) {
     if (consume("+"))
@@ -171,7 +207,7 @@ Node *unary() {
 
 Node *primary() {
   if (consume("(")) {
-    Node *node = expr();
+    Node *node = eql();
     expect(")");
     return node;
   }
@@ -198,8 +234,16 @@ Token *tokenize(char *p) {
       continue;
     }
 
+    if (!memcmp(p, "==", 2) || !memcmp(p, "!=", 2) || !memcmp(p, "<=", 2) ||
+        !memcmp(p, ">=", 2)) {
+      cur = new_token(TK_RESERVED, cur, p++);
+      cur->len = 2;
+      p++;
+      continue;
+    }
+
     if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' ||
-        *p == ')') {
+        *p == ')' || *p == '<' || *p == '>') {
       cur = new_token(TK_RESERVED, cur, p++);
       cur->len = 1;
       continue;
@@ -210,7 +254,6 @@ Token *tokenize(char *p) {
       cur->val = strtol(p, &p, 10);
       continue;
     }
-
     error_at(p, "could not tokenize");
   }
   new_token(TK_EOF, cur, p);
@@ -259,6 +302,36 @@ void gen(Node *node) {
     printf("  cqo\n");
     printf("  idiv rdi\n");
     break;
+  case ND_EQ:
+    printf("  cmp rax, rdi\n");
+    printf("  sete al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_NEQ:
+    printf("  cmp rax, rdi\n");
+    printf("  setne al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LEQ:
+    printf("  cmp rax, rdi\n");
+    printf("  setle al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LES:
+    printf("  cmp rax, rdi\n");
+    printf("  setl al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_GEQ:
+    printf("  cmp rax, rdi\n");
+    printf("  setge al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_GRE:
+    printf("  cmp rax, rdi\n");
+    printf("  setg al\n");
+    printf("  movzb rax, al\n");
+    break;
   }
 
   printf("  push rax\n");
@@ -274,7 +347,7 @@ int main(int argc, char **argv) {
   token = tokenize(argv[1]);
   // show_token(token);
 
-  Node *node = expr();
+  Node *node = eql();
   // show_node(node);
 
   printf(".intel_syntax noprefix\n");
