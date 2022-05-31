@@ -1,5 +1,8 @@
 #include "2cc.h"
+#include <stdio.h>
+#include <stdlib.h>
 
+Node *code[100];
 //可視化用
 
 void show_node(Node *node) {
@@ -37,6 +40,33 @@ Node *new_node_num(int val) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = ND_NUM;
   node->val = val;
+  return node;
+}
+
+void program() {
+  int i = 0;
+
+  while (!at_eof()) {
+    code[i++] = stmt();
+    code[i] = NULL;
+  }
+}
+
+Node *stmt() {
+  Node *node = expr();
+  expect(";");
+  return node;
+}
+
+Node *expr() {
+  Node *node = assign();
+  return node;
+}
+
+Node *assign() {
+  Node *node = eql();
+  if (consume("="))
+    node = new_node(ND_ASSIGN, node, assign());
   return node;
 }
 
@@ -107,12 +137,47 @@ Node *primary() {
     return node;
   }
 
+  Token *tok = consume_ident();
+  if (tok) {
+    Node *node = calloc(1, sizeof(Node));
+    node->kind = ND_LVAR;
+    // 変数1文字で考えているので、強制的にoffsetを決められる
+    node->offset = (tok->str[0] - 'a' + 1) * 8;
+    return node;
+  }
+
   return new_node_num(expect_number());
 }
 
+void gen_lval(Node *node) {
+  if (node->kind != ND_LVAR)
+    perror("trying to assign a non-lhs type char");
+
+  printf("  mov rax, rbp\n");
+  printf("  sub rax, %d\n", node->offset);
+  printf("  push rax\n");
+}
+
 void gen(Node *node) {
-  if (node->kind == ND_NUM) {
+  switch (node->kind) {
+  case (ND_NUM):
     printf("  push %d\n", node->val);
+    return;
+  case (ND_LVAR):
+    gen_lval(node);
+    printf("  pop rax\n");
+    printf("  mov rax [rax]\n");
+    printf("  push rax\n");
+    return;
+
+  case (ND_ASSIGN):
+    gen_lval(node->lhs);
+    gen(node->rhs);
+
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+    printf("  mov [rax], rdi\n");
+    printf("  push rdi\n");
     return;
   }
 
