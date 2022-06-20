@@ -1,5 +1,7 @@
 #include "2cc.h"
 
+LVar *locals;
+
 bool consume(char *op) {
   // 記号でないか、期待している記号でないなら偽
   if (token->kind != TK_RESERVED || strlen(op) != token->len ||
@@ -71,17 +73,23 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    if ('a' <= *p && *p <= 'z') {
-      cur = new_token(TK_IDENT, cur, p++);
-      cur->len = 1;
-      continue;
-    }
-
     if (isdigit(*p)) {
       cur = new_token(TK_NUM, cur, p);
       cur->val = strtol(p, &p, 10);
       continue;
     }
+
+    char *prev_pos = p;
+    while (*p <= 'z' && *p >= 'a' || *p <= 'Z' && *p >= 'A')
+      p++;
+
+    // とりあえず変数にするのでいいの？
+    if (*p != 0) {
+      cur = new_token(TK_IDENT, cur, prev_pos);
+      cur->len = (int)(p - prev_pos);
+      continue;
+    }
+
     error_at(p, "could not tokenize");
   }
   new_token(TK_EOF, cur, p);
@@ -102,4 +110,13 @@ void show_token(Token *token) {
   }
   if (token->next != NULL)
     show_token(token->next);
+}
+
+LVar *find_lvar(Token *token) {
+  for (LVar *var = locals; var; var = var->next) {
+    // memcmpは文字比較(非ASCIIでも動くようにする)
+    if (var->len == token->len && !memcmp(token->str, var->name, var->len))
+      return var;
+  }
+  return (LVar *)NULL;
 }

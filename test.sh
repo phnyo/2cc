@@ -34,6 +34,8 @@ assert 1 "42 <= 42;"
 assert 1 "6 * 7 == 38 + 4;"
 assert 1 "a = 1;"
 assert 1 "z = 1;"
+assert 2 "a = 1; a = 1 + 1;"
+assert 1 "hello = 1;"
 
 
 echo OK

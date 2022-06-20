@@ -141,8 +141,20 @@ Node *primary() {
   if (tok) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = ND_LVAR;
-    // 変数1文字で考えているので、強制的にoffsetを決められる
-    node->offset = (tok->str[0] - 'a' + 1) * 8;
+    // 変数を探してそれでoffsetを決める
+    LVar *lvar = find_lvar(tok);
+
+    if (locals) {
+      node->offset = lvar->offset;
+    } else {
+      lvar = calloc(1, sizeof(lvar));
+      lvar->next = locals;
+      lvar->name = tok->str;
+      lvar->len = tok->len;
+      lvar->offset = (locals ? locals->offset + 8 : 8);
+      node->offset = lvar->offset;
+      locals = lvar;
+    }
     return node;
   }
 
